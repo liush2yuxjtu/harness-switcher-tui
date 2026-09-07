@@ -48,13 +48,13 @@ CPA 配置读取顺序：进程环境变量 > `.env.local` > `~/.env`。没有�
 
 ```bash
 npm run check            # TypeScript
-npm test                 # 16 项自动测试，不请求模型
+npm test                 # 17 项自动测试，不请求模型
 npm run smoke            # 两种真实 HarnessAgent 并发写读文件、文本流、会话销毁
 npm run test:pty         # 离线真实 PTY 键盘测试
 npm run test:pty:live     # 使用 CPA 的真实 PTY 键盘测试
 ```
 
-2026-09-07 本轮复测：`check`、**16/16 单元测试**、离线 PTY 全部通过。新增覆盖 4000 字符拒绝、20 任务累计上限、80k 输出保留、畸形模型目录和退出清理失败传播；TUI 不再静默截断超长输入，清理失败退出码为非零。真实 smoke 返回 **HTTP 401 `auth_unavailable`**：`Encountered invalidated oauth token for user, failing request`。没有修改 CPA 或切换 provider；因认证已失败，本轮不重复 live PTY。
+2026-09-07 本轮复测：`check`、**17/17 单元测试**、离线 PTY 全部通过。新增覆盖 4000 字符拒绝、20 任务累计上限、80k 输出保留、畸形模型目录、模型目录读取取消和退出清理失败传播；TUI 不再静默截断超长输入，清理失败退出码为非零。真实 smoke 返回 **HTTP 401 `auth_unavailable`**：`Encountered invalidated oauth token for user, failing request`。没有修改 CPA 或切换 provider；因认证已失败，本轮不重复 live PTY。
 
 同日较早的干净 `npm ci --ignore-scripts`、真实 Pi/Cline 并发文件写读 smoke、离线/真实 PTY 曾通过。历史 PTY 实测 Tab、后台并发、切回完成任务、取消、窗口缩放、方向键、翻页、带活动任务退出及终端 raw mode 恢复。**历史通过不代表当前 CPA 凭据仍有效。**
 
