@@ -17,6 +17,10 @@ test('config：缺密钥拒绝启动；只允许本机 CPA，不允许 Gateway �
 
 test('network：即使存在 ambient Gateway 凭据，也只允许 CPA；拒绝重定向', async () => {
   const previous = globalThis.fetch;
+  const previousGateway = process.env.AI_GATEWAY_API_KEY;
+  const previousOidc = process.env.VERCEL_OIDC_TOKEN;
+  process.env.AI_GATEWAY_API_KEY = 'ambient-gateway-must-not-be-used';
+  process.env.VERCEL_OIDC_TOKEN = 'ambient-oidc-must-not-be-used';
   const seen: RequestInit[] = [];
   globalThis.fetch = async (_input, init) => { seen.push(init!); return Response.json({ data: [{ id: 'gpt-4o' }] }); };
   const restore = restrictFetch(validateConfig(env));
@@ -26,7 +30,13 @@ test('network：即使存在 ambient Gateway 凭据，也只允许 CPA；拒绝�
     await assert.rejects(fetch('https://ai-gateway.vercel.sh/v1/chat/completions'), /非 CPA/);
     await assert.rejects(fetch('http://127.0.0.1:8318/admin'), /非 CPA/);
     assert.equal(seen.length, 1);
-  } finally { restore(); globalThis.fetch = previous; }
+  } finally {
+    restore(); globalThis.fetch = previous;
+    if (previousGateway === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGateway;
+    if (previousOidc === undefined) delete process.env.VERCEL_OIDC_TOKEN;
+    else process.env.VERCEL_OIDC_TOKEN = previousOidc;
+  }
 });
 
 test('config：CPA HTTP 错误或模型不在目录时，真实模式失败而非回退', async () => {
@@ -36,6 +46,38 @@ test('config：CPA HTTP 错误或模型不在目录时，真实模式失败而�
     await assert.rejects(checkModels(validateConfig(env)), /HTTP 401/);
     globalThis.fetch = async () => Response.json({ data: [] });
     await assert.rejects(checkModels(validateConfig(env)), /模型目录没有/);
+  } finally { globalThis.fetch = original; }
+});
+
+test('config：畸形模型目录返回可读错误', async () => {
+  const original = globalThis.fetch;
+  try {
+    for (const body of [
+      '{}',
+      '{"data":null}',
+      '{"data":[{}]}',
+      '{"data":[{"id":123}]}',
+      '{"data":[{"id":""}]}',
+      '{',
+    ]) {
+      globalThis.fetch = async () => new Response(body, { status: 200 });
+      await assert.rejects(checkModels(validateConfig(env)), /模型目录格式无效/);
+    }
+  } finally { globalThis.fetch = original; }
+});
+
+test('config：模型目录读取取消保留取消原因', async () => {
+  const original = globalThis.fetch;
+  const controller = new AbortController();
+  try {
+    globalThis.fetch = async () => ({
+      ok: true,
+      async json() {
+        controller.abort(new Error('caller cancelled'));
+        throw new Error('body parse failed');
+      },
+    } as unknown as Response);
+    await assert.rejects(checkModels(validateConfig(env), controller.signal), /caller cancelled/);
   } finally { globalThis.fetch = original; }
 });
 

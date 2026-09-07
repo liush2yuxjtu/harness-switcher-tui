@@ -43,6 +43,7 @@ test('Jobs：取消一个任务不取消另一个；错误脱敏且销毁会话'
   assert.equal(first.status, 'cancelled'); assert.equal(second.status, 'error');
   assert(!second.error.includes('sensitive-key'));
   assert.equal(destroyed.length, 2);
+  await jobs.close();
 });
 
 test('Jobs：关闭时取消所有后台任务，拒绝新任务', async () => {
@@ -84,8 +85,36 @@ test('Jobs：迟到会话清理失败不会被吞掉', async () => {
     return { async *stream() {}, async destroy() { throw new Error('late cleanup'); } };
   });
   const job = jobs.submit('pi', 'x'); jobs.cancel(job);
-  await jobs.close();
+  await assert.rejects(jobs.close(), /迟到会话清理失败/);
   assert.equal(job.status, 'error'); assert.match(job.error, /迟到会话清理失败/);
+});
+
+test('Jobs：严格执行输入、累计任务和输出边界', async () => {
+  const factory: RuntimeFactory = async () => ({
+    async *stream(prompt) {
+      yield { type: 'text', text: prompt === 'output' ? `a${'b'.repeat(80_000)}` : prompt };
+    },
+    async destroy() {},
+  });
+
+  const inputJobs = new Jobs(factory);
+  const accepted = inputJobs.submit('pi', 'x'.repeat(4000));
+  await accepted.completion;
+  assert.equal(accepted.status, 'done');
+  assert.throws(() => inputJobs.submit('pi', 'x'.repeat(4001)), /最多 4000/);
+  await inputJobs.close();
+
+  const cumulativeJobs = new Jobs(factory);
+  for (let index = 0; index < 20; index++) await cumulativeJobs.submit('pi', `task-${index}`).completion;
+  assert.equal(cumulativeJobs.items.length, 20);
+  assert.throws(() => cumulativeJobs.submit('cline', 'task-21'), /最多 20/);
+  await cumulativeJobs.close();
+
+  const outputJobs = new Jobs(factory);
+  const output = outputJobs.submit('pi', 'output');
+  await output.completion;
+  assert.equal(output.text, 'b'.repeat(80_000));
+  await outputJobs.close();
 });
 
 test('bounded：已取消时仍消费底层 rejection，避免未处理异常', async () => {
@@ -98,4 +127,5 @@ test('Jobs：destroy 失败不能报告成功', async () => {
   const jobs = new Jobs(async () => ({ async *stream() {}, async destroy() { throw new Error('cleanup failed'); } }));
   const job = jobs.submit('pi', 'x'); await job.completion;
   assert.equal(job.status, 'error'); assert.match(job.error, /会话清理失败/);
+  await assert.rejects(jobs.close(), /会话清理失败/);
 });
