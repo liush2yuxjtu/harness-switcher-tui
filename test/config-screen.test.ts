@@ -66,6 +66,21 @@ test('config：畸形模型目录返回可读错误', async () => {
   } finally { globalThis.fetch = original; }
 });
 
+test('config：模型目录读取取消保留取消原因', async () => {
+  const original = globalThis.fetch;
+  const controller = new AbortController();
+  try {
+    globalThis.fetch = async () => ({
+      ok: true,
+      async json() {
+        controller.abort(new Error('caller cancelled'));
+        throw new Error('body parse failed');
+      },
+    } as unknown as Response);
+    await assert.rejects(checkModels(validateConfig(env), controller.signal), /caller cancelled/);
+  } finally { globalThis.fetch = original; }
+});
+
 test('screen：剥离模型输出中的 ANSI / OSC / 控制字符；中文截断及换行', () => {
   assert.equal(clean('\x1b[31m红色\x1b[0m\x1b]52;c;payload\x07\x00'), '红色');
   assert.equal(clip('中文abc', 5), '中文a');

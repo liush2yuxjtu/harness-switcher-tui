@@ -42,14 +42,18 @@ export async function loadConfig(): Promise<Config> {
 }
 
 export async function checkModels(config: Config, signal?: AbortSignal): Promise<void> {
+  const requestSignal = AbortSignal.any([AbortSignal.timeout(10_000), ...(signal ? [signal] : [])]);
   const response = await fetch(`${config.baseUrl}/models`, {
     headers: { Authorization: `Bearer ${config.apiKey}` }, redirect: 'error',
-    signal: AbortSignal.any([AbortSignal.timeout(10_000), ...(signal ? [signal] : [])]),
+    signal: requestSignal,
   });
   if (!response.ok) throw new Error(`CPA 模型目录 HTTP ${response.status}`);
   let data: unknown;
   try { data = await response.json(); }
-  catch { throw new Error('CPA 模型目录格式无效。'); }
+  catch (error) {
+    if (requestSignal.aborted) throw requestSignal.reason ?? error;
+    throw new Error('CPA 模型目录格式无效。');
+  }
   if (!data || typeof data !== 'object' || !Array.isArray((data as { data?: unknown }).data)
     || !(data as { data: unknown[] }).data.every(item => item && typeof item === 'object'
       && typeof (item as { id?: unknown }).id === 'string' && Boolean((item as { id: string }).id.trim()))) {
