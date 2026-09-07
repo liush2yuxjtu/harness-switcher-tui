@@ -2,10 +2,10 @@
 
 Parent intent: [intent.md](./intent.md)，accepted，Git 13e47b7
 Parent spec: [spec.md](./spec.md)，accepted，Git 374679e
-Status: proposed
+Status: approved for implementation
 Engineer: AI 助手负责实施提案；当前用户负责计划批准
 Risk approver: 当前用户（已接受所披露本机依赖风险）；独立技术审查人待指定
-Approval evidence: none；“go next step now”授权编写计划，不代表接受未展示的计划
+Approval evidence: 当前用户消息“plan approved.”；独立技术审查仍未完成
 Source of truth: 本文件；计划版本以 Git 历史为准
 
 ## 仓库发现
@@ -108,4 +108,4 @@ Source of truth: 本文件；计划版本以 Git 历史为准
 
 ## Plan gate
 
-等待当前用户以工程决策人身份批准本计划；独立技术审查不能由AI自我宣称完成。批准后才跟踪源码基线、改代码并执行本计划。当前仅提交proposed计划文档，不推送、部署或进行认证写操作。
+当前用户已批准本计划，允许跟踪源码基线、改代码并执行本计划。独立技术审查不能由AI自我宣称完成，仍保持未完成。本轮不推送、部署或进行认证写操作。

@@ -1,0 +1,33 @@
+{
+  "name": "harness-switcher-tui",
+  "version": "1.0.0",
+  "description": "纯 TUI：通过 CPA 并发运行 Pi / Cline HarnessAgent",
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "start": "node src/tui.ts",
+    "demo": "node src/tui.ts --offline",
+    "check": "tsc --noEmit",
+    "smoke": "node scripts/smoke.ts",
+    "test:pty": "python3 scripts/pty_test.py",
+    "test:pty:live": "python3 scripts/pty_test.py --live"
+  },
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@ai-sdk/harness": "1.0.102",
+    "@ai-sdk/harness-cline": "1.0.29",
+    "@ai-sdk/harness-pi": "1.0.104",
+    "@ai-sdk/sandbox-just-bash": "1.0.102",
+    "@earendil-works/pi-ai": "0.74.2",
+    "ai": "7.0.93",
+    "just-bash": "2.14.5"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1",
+    "typescript": "7.0.2"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
