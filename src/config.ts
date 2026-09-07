@@ -47,9 +47,17 @@ export async function checkModels(config: Config, signal?: AbortSignal): Promise
     signal: AbortSignal.any([AbortSignal.timeout(10_000), ...(signal ? [signal] : [])]),
   });
   if (!response.ok) throw new Error(`CPA 模型目录 HTTP ${response.status}`);
-  const data = await response.json() as { data?: { id: string }[] };
+  let data: unknown;
+  try { data = await response.json(); }
+  catch { throw new Error('CPA 模型目录格式无效。'); }
+  if (!data || typeof data !== 'object' || !Array.isArray((data as { data?: unknown }).data)
+    || !(data as { data: unknown[] }).data.every(item => item && typeof item === 'object'
+      && typeof (item as { id?: unknown }).id === 'string' && Boolean((item as { id: string }).id.trim()))) {
+    throw new Error('CPA 模型目录格式无效。');
+  }
+  const models = (data as { data: { id: string }[] }).data;
   for (const model of [config.piModel, config.clineModel]) {
-    if (!data.data?.some(item => item.id === model)) throw new Error(`CPA 模型目录没有 ${model}；请配置 CPA_PI_MODEL / CPA_CLINE_MODEL。`);
+    if (!models.some(item => item.id === model)) throw new Error(`CPA 模型目录没有 ${model}；请配置 CPA_PI_MODEL / CPA_CLINE_MODEL。`);
   }
 }
 

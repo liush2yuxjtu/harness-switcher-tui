@@ -60,6 +60,7 @@ async function runTui(config?: Config): Promise<void> {
   let finish: () => void = () => {};
   const done = new Promise<void>(resolve => { finish = resolve; });
   let shutdownTimer: NodeJS.Timeout | undefined;
+  let shutdownError: unknown;
   const restoreTerminal = () => {
     process.stdin.setRawMode(false);
     process.stdout.write('\x1b[?25h\x1b[?1049l');
@@ -73,7 +74,14 @@ async function runTui(config?: Config): Promise<void> {
       console.error('清理超时，强制结束 demo 进程。');
       process.exit(1);
     }, 8000);
-    void jobs.close().finally(finish);
+    void jobs.close().then(
+      () => finish(),
+      error => {
+        shutdownError = error;
+        process.exitCode = 1;
+        finish();
+      },
+    );
   };
   const onKey = (text: string | undefined, key: Key) => {
     if (key.ctrl && ['q', 'c'].includes(key.name ?? '')) { quit(); return; }
@@ -101,7 +109,7 @@ async function runTui(config?: Config): Promise<void> {
         const graphemes = [...new Intl.Segmenter('zh', { granularity: 'grapheme' }).segment(view.input)];
         view.input = graphemes.slice(0, -1).map(item => item.segment).join('');
       } else if (!key.ctrl && !key.meta && text && !text.includes('\x1b')) {
-        view.input = (view.input + clean(text).replace(/[\r\n\t]/g, ' ')).slice(0, 4000);
+        view.input += clean(text).replace(/[\r\n\t]/g, ' ');
       }
     } catch (error) { view.notice = safeError(error, secrets); }
     repaint();
@@ -116,5 +124,6 @@ async function runTui(config?: Config): Promise<void> {
     process.off('SIGINT', quit); process.off('SIGTERM', quit);
     process.stdout.off('resize', repaint); jobs.off('change', repaint);
     restoreTerminal(); process.stdin.pause();
+    if (shutdownError) console.error(`退出清理失败：${safeError(shutdownError, secrets)}`);
   }
 }

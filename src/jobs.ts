@@ -5,7 +5,7 @@ import type { Harness, Runtime, RuntimeFactory } from './runtime.ts';
 export type Status = 'starting' | 'running' | 'cancelling' | 'done' | 'cancelled' | 'error';
 export type Job = {
   id: number; harness: Harness; prompt: string; status: Status; text: string;
-  activity: string; error: string; started: number; finished?: number;
+  activity: string; error: string; cleanupFailed: boolean; started: number; finished?: number;
   controller: AbortController; completion: Promise<void>;
 };
 export const isActive = (job: Job) => ['starting', 'running', 'cancelling'].includes(job.status);
@@ -43,7 +43,7 @@ export class Jobs extends EventEmitter {
     if (this.items.filter(isActive).length >= 4) throw new Error('最多同时运行 4 个任务。');
     const job: Job = {
       id: this.items.length + 1, harness, prompt: prompt.trim(), status: 'starting', text: '',
-      activity: '创建独立会话', error: '', started: Date.now(), controller: new AbortController(), completion: Promise.resolve(),
+      activity: '创建独立会话', error: '', cleanupFailed: false, started: Date.now(), controller: new AbortController(), completion: Promise.resolve(),
     };
     this.items.push(job);
     job.completion = this.run(job);
@@ -63,6 +63,10 @@ export class Jobs extends EventEmitter {
     this.items.forEach(job => this.cancel(job));
     await Promise.all(this.items.map(job => job.completion));
     await Promise.all(this.lateCleanup);
+    const failures = this.items.filter(job => job.cleanupFailed);
+    if (failures.length) {
+      throw new Error(failures.map(job => `#${job.id} ${job.error || '会话清理失败'}`).join('；'));
+    }
   }
 
   private async run(job: Job): Promise<void> {
@@ -76,6 +80,7 @@ export class Jobs extends EventEmitter {
         this.lateCleanup.push(creating.then(async value => {
           try { await bounded(value.destroy(), AbortSignal.timeout(5000)); }
           catch (cleanupError) {
+            job.cleanupFailed = true;
             job.status = 'error';
             job.error = `迟到会话清理失败：${safeError(cleanupError, this.secrets)}`;
             this.emit('change');
@@ -108,7 +113,11 @@ export class Jobs extends EventEmitter {
     } finally {
       if (runtime) {
         try { await bounded(runtime.destroy(), AbortSignal.timeout(5000)); }
-        catch (error) { job.status = 'error'; job.error = `会话清理失败：${safeError(error, this.secrets)}`; }
+        catch (error) {
+          job.cleanupFailed = true;
+          job.status = 'error';
+          job.error = `会话清理失败：${safeError(error, this.secrets)}`;
+        }
       }
       job.finished = Date.now();
       this.emit('change');
