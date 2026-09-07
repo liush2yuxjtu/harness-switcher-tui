@@ -108,4 +108,14 @@ Source of truth: 本文件；计划版本以 Git 历史为准
 
 ## Plan gate
 
-当前用户已批准本计划，允许跟踪源码基线、改代码并执行本计划。独立技术审查不能由AI自我宣称完成，仍保持未完成。本轮不推送、部署或进行认证写操作。
+当前用户已批准本计划，允许跟踪源码基线、改代码并执行本计划。独立技术审查不能由AI自我宣称完成，仍保持未完成。本轮首次批准时不推送、部署或进行认证写操作；后续用户明确要求 `/ship`，仅授权本项目 Git ship，不改变 CPA 认证边界。
+
+## 本轮执行结果
+
+- 已从基线 `7fc989d` 创建 `codex/tui-hardening`，未覆盖原有 `scripts/pty_test.py` 改动。
+- 已修复 R-006：TUI 不再把超长输入静默截断；提交时拒绝超过 4000 字符。
+- 已修复 R-004/007：清理失败设置结构化标记，`Jobs.close()` 抛出清理错误，TUI 设置非零退出码；普通取消和模型错误不因清理成功而失败退出。
+- 已补充 R-005/006/009 边界测试：ambient Gateway 环境、畸形模型目录、20 任务、80k 输出、4000 字符边界。
+- 新鲜验证：`npm run check` 通过；`npm test` 16/16 通过；`npm run test:pty` 通过。
+- 新鲜真实 smoke 失败：CPA 返回 HTTP 401 `auth_unavailable` / `invalidated oauth token`。未修改认证、未切换 provider，按计划不运行 live PTY。
+- ship preflight 发现 `git remote -v` 为空；本地仓库没有 `origin`，因此当前无法推送、创建 PR 或合并。

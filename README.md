@@ -37,7 +37,7 @@ CPA 配置读取顺序：进程环境变量 > `.env.local` > `~/.env`。没有�
 ## 实际边界
 
 - 切换的是**不同任务的独立会话**，不是迁移原生聊天历史。每次 Enter 都是新会话；不做多轮续聊或跨进程恢复。
-- 最多 4 并发、20 个任务；输入最多 4000 字符，输出只保留最近 80k 字符。
+- 最多 4 并发、20 个任务；输入最多 4000 字符，超限提交会拒绝且不会静默截断；输出只保留最近 80k 字符。
 - 单任务 120 秒（含启动），单 HTTP 请求 60 秒，模型目录 10 秒，单次 sandbox 命令 10 秒。退出清理超过 8 秒会恢复终端并强制结束进程，报告失败。
 - `just-bash` 是**内存文件系统与 shell 模拟器**，不是容器或 microVM。没有挂载宿主项目，没有安装依赖或暴露网络端口。不要把它当作运行不可信 Node.js 扩展的安全边界。
 - 每个任务结束即销毁工作区；没有磁盘文件产物、后台守护进程、跨进程恢复或无限 shell 命令支持。
@@ -48,13 +48,13 @@ CPA 配置读取顺序：进程环境变量 > `.env.local` > `~/.env`。没有�
 
 ```bash
 npm run check            # TypeScript
-npm test                 # 14 项自动测试，不请求模型
+npm test                 # 16 项自动测试，不请求模型
 npm run smoke            # 两种真实 HarnessAgent 并发写读文件、文本流、会话销毁
 npm run test:pty         # 离线真实 PTY 键盘测试
 npm run test:pty:live     # 使用 CPA 的真实 PTY 键盘测试
 ```
 
-2026-09-07 最后收尾复测：`check`、**14/14 单元测试**、离线 PTY 全部通过，覆盖最终的迟到会话清理修改。真实 smoke 返回 **HTTP 401 `auth_unavailable`**：`Encountered invalidated oauth token for user, failing request`。没有修改 CPA 或切换 provider；因认证已失败，本轮不重复 live PTY。
+2026-09-07 本轮复测：`check`、**16/16 单元测试**、离线 PTY 全部通过。新增覆盖 4000 字符拒绝、20 任务累计上限、80k 输出保留、畸形模型目录和退出清理失败传播；TUI 不再静默截断超长输入，清理失败退出码为非零。真实 smoke 返回 **HTTP 401 `auth_unavailable`**：`Encountered invalidated oauth token for user, failing request`。没有修改 CPA 或切换 provider；因认证已失败，本轮不重复 live PTY。
 
 同日较早的干净 `npm ci --ignore-scripts`、真实 Pi/Cline 并发文件写读 smoke、离线/真实 PTY 曾通过。历史 PTY 实测 Tab、后台并发、切回完成任务、取消、窗口缩放、方向键、翻页、带活动任务退出及终端 raw mode 恢复。**历史通过不代表当前 CPA 凭据仍有效。**
 
