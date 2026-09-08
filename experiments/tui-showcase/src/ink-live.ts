@@ -173,8 +173,11 @@ function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secret
         return React.createElement(Text, { key: job.id, color: statusColor(job.status) }, `${prefix}${clip(clean(job.prompt), Math.max(1, contentWidth - prefix.length))}`);
       })
     : [React.createElement(Text, { key: 'empty', color: 'gray' }, '  no real jobs in this pane')];
+  const activityLines = selectedJob && selectedJob.harness === harness
+    ? tailLines(selectedJob.activity, contentWidth, Math.max(1, outputRows - 1))
+    : [];
   const outputHeader = selectedJob && selectedJob.harness === harness
-    ? [`#${selectedJob.id} ${selectedJob.harness.toUpperCase()} · ${statusLabel(selectedJob.status)}`, clean(selectedJob.activity)]
+    ? [`#${selectedJob.id} ${selectedJob.harness.toUpperCase()} · ${statusLabel(selectedJob.status)}`, ...activityLines].slice(0, Math.max(1, outputRows - 1))
     : [];
   const outputBody = selectedJob && selectedJob.harness === harness
     ? [selectedJob.text || 'waiting for stream…', selectedJob.error ? `error: ${selectedJob.error}` : ''].filter(Boolean).join('\n')

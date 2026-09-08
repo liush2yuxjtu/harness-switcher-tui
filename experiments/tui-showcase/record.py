@@ -64,7 +64,6 @@ def record(name, output_dir):
                 try:
                     os.write(master, schedule[sent][1])
                 except OSError:
-                    sent = len(schedule)
                     break
                 sent += 1
             ready, _, _ = select.select([master], [], [], 0.05)
@@ -75,8 +74,8 @@ def record(name, output_dir):
                     chunk = b''
                 if chunk:
                     events.append([round(elapsed, 3), 'o', chunk.decode('utf-8', errors='replace')])
-            if process.poll() is not None and sent == len(schedule):
-                finished_by_scene = True
+            if process.poll() is not None:
+                finished_by_scene = sent == len(schedule)
                 break
         if process.poll() is None:
             forced = True
