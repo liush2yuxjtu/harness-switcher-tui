@@ -1,13 +1,12 @@
 import { fileURLToPath } from 'node:url';
 import React from 'react';
-import { Box, Text, render, useApp, useInput } from 'ink';
+import { Box, Text, render, useApp, useInput, useStdout } from 'ink';
 import { checkModels, loadConfig, safeError, type Config } from '../../../src/config.ts';
 import { isActive, Jobs, type Job } from '../../../src/jobs.ts';
-import { clean, wrap } from '../../../src/screen.ts';
+import { clean, clip, wrap } from '../../../src/screen.ts';
 import { restrictFetch } from '../../../src/network.ts';
 import { harnesses, liveFactory, type Harness } from '../../../src/runtime.ts';
 
-const separator = '─'.repeat(104);
 const graphemes = new Intl.Segmenter('zh', { granularity: 'grapheme' });
 
 function statusLabel(status: Job['status']): string {
@@ -30,9 +29,33 @@ function statusColor(status: Job['status']): string {
 }
 
 type NoticeSink = { current?: (message: string) => void };
+type CloseState = { promise?: Promise<void> };
 
-function LiveApp({ jobs, secrets, noticeSink }: { jobs: Jobs; secrets: string[]; noticeSink: NoticeSink }) {
+function closeJobs(jobs: Jobs, state: CloseState): Promise<void> {
+  if (state.promise) return state.promise;
+  state.promise = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('退出清理超时')), 8000);
+    jobs.close().then(() => {
+      clearTimeout(timer);
+      resolve();
+    }, error => {
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
+  return state.promise;
+}
+
+function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secrets: string[]; noticeSink: NoticeSink; closeState: CloseState }) {
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  const columns = stdout.columns || 80;
+  const rows = stdout.rows || 24;
+  const width = Math.max(56, Math.min(108, columns - 2));
+  const height = Math.max(16, Math.min(30, rows - 1));
+  const contentWidth = Math.max(40, width - 4);
+  const outputRows = Math.max(3, height - 15);
+  const separator = '─'.repeat(contentWidth);
   const [harness, setHarness] = React.useState<Harness>('pi');
   const [input, setInput] = React.useState('');
   const [selected, setSelected] = React.useState<number | undefined>();
@@ -56,7 +79,7 @@ function LiveApp({ jobs, secrets, noticeSink }: { jobs: Jobs; secrets: string[];
     if (closingRef.current) return;
     closingRef.current = true;
     setClosing(true);
-    void jobs.close().then(() => exit(), error => exit(new Error(safeError(error, secrets))));
+    void closeJobs(jobs, closeState).then(() => exit(), error => exit(new Error(safeError(error, secrets))));
   }, [exit, jobs, secrets]);
 
   useInput((value, key) => {
@@ -119,20 +142,20 @@ function LiveApp({ jobs, secrets, noticeSink }: { jobs: Jobs; secrets: string[];
     ? visibleTasks.map(job => React.createElement(
         Text,
         { key: job.id, color: statusColor(job.status) },
-        `${job.id === selected ? '›' : ' '} #${job.id} [${statusLabel(job.status)}] ${clean(job.prompt)}`,
+        `${job.id === selected ? '›' : ' '} #${job.id} [${statusLabel(job.status)}] ${clip(clean(job.prompt), contentWidth)}`,
       ))
     : [React.createElement(Text, { key: 'empty', color: 'gray' }, '  no real jobs in this pane')];
   const rawOutput = selectedJob && selectedJob.harness === harness
     ? [`#${selectedJob.id} ${selectedJob.harness.toUpperCase()} · ${statusLabel(selectedJob.status)}`, clean(selectedJob.activity), clean(selectedJob.text || 'waiting for stream…'), selectedJob.error ? `error: ${clean(selectedJob.error)}` : '']
     : ['Select a real job to watch its stream.'];
-  const output = wrap(clean(rawOutput.filter(Boolean).join('\n')), 100).slice(-8).join('\n');
+  const output = wrap(clean(rawOutput.filter(Boolean).join('\n')), contentWidth).slice(-outputRows).join('\n');
 
   return React.createElement(
     Box,
     {
       flexDirection: 'column',
-      width: 108,
-      height: 30,
+      width,
+      height,
       borderStyle: 'round',
       borderColor: 'green',
       paddingLeft: 1,
@@ -148,13 +171,14 @@ function LiveApp({ jobs, secrets, noticeSink }: { jobs: Jobs; secrets: string[];
     React.createElement(Text, { color: 'magenta' }, 'OUTPUT'),
     React.createElement(Text, { color: 'white' }, output),
     React.createElement(Text, { color: 'gray' }, separator),
-    React.createElement(Text, { color: 'yellow' }, notice),
-    React.createElement(Text, { color: 'white' }, `${harness.toUpperCase()} > ${input || '输入真实任务，按 Enter'}${input ? ' ▏' : ''}`),
+    React.createElement(Text, { color: 'yellow' }, clip(notice, contentWidth)),
+    React.createElement(Text, { color: 'white' }, `${harness.toUpperCase()} > ${input ? clip(input, contentWidth - harness.length - 3) : '输入真实任务，按 Enter'}${input ? ' ▏' : ''}`),
   );
 }
 
 async function run(config: Config): Promise<void> {
   const jobs = new Jobs(liveFactory(config), [config.apiKey]);
+  const closeState: CloseState = {};
   const noticeSink: NoticeSink = {};
   const originalStderrWrite = process.stderr.write;
   process.stderr.write = function(chunk: string | Uint8Array, ...rest: unknown[]): boolean {
@@ -164,12 +188,12 @@ async function run(config: Config): Promise<void> {
     callback?.();
     return true;
   } as typeof process.stderr.write;
-  const instance = render(React.createElement(LiveApp, { jobs, secrets: [config.apiKey], noticeSink }));
+  const instance = render(React.createElement(LiveApp, { jobs, secrets: [config.apiKey], noticeSink, closeState }));
   try {
     await instance.waitUntilExit();
   } finally {
     process.stderr.write = originalStderrWrite;
-    await jobs.close();
+    await closeJobs(jobs, closeState);
   }
 }
 

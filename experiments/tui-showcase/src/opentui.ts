@@ -57,7 +57,7 @@ function redraw() {
   const current = value.tasks.filter(task => task.harness === value.activeHarness);
   const selected = selectedTask(value);
   header.content = 'HARNESS SWITCHER  |  OpenTUI';
-  tabs.content = `› PI ${activeCount(value, 'PI')} active    ${value.activeHarness === 'PI' ? '>' : ' '} CLINE ${activeCount(value, 'CLINE')} active`;
+  tabs.content = `${value.activeHarness === 'PI' ? '›' : ' '} PI ${activeCount(value, 'PI')} active    ${value.activeHarness === 'CLINE' ? '›' : ' '} CLINE ${activeCount(value, 'CLINE')} active`;
   help.content = 'Tab switch · Enter submit · Ctrl+X cancel · Q quit';
   tasks.content = [`TASKS · ${value.activeHarness}`, ...(current.length
     ? current.map(task => `${task.id === value.selectedTaskId ? '›' : ' '} #${task.id} [${statusLabel(task.status)}] ${task.prompt}`)

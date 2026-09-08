@@ -78,7 +78,7 @@ function App() {
     React.createElement(
       Text,
       { color: 'white' },
-      `› PI ${activeCount(state, 'PI')} active    ${state.activeHarness === 'PI' ? '>' : ' '} CLINE ${activeCount(state, 'CLINE')} active`,
+      `${state.activeHarness === 'PI' ? '›' : ' '} PI ${activeCount(state, 'PI')} active    ${state.activeHarness === 'CLINE' ? '›' : ' '} CLINE ${activeCount(state, 'CLINE')} active`,
     ),
     React.createElement(Text, { color: 'gray' }, 'Tab switch · Enter submit · Ctrl+X cancel · Q quit'),
     React.createElement(Text, { color: 'gray' }, separator),

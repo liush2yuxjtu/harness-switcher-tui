@@ -203,7 +203,7 @@ func (m model) View() tea.View {
 
 	content := strings.Join([]string{
 		titleStyle.Render("HARNESS SWITCHER  |  Bubble Tea"),
-		fmt.Sprintf("› PI %d active    %s CLINE %d active", activeCount(m.state, Pi), marker(m.state, Cline), activeCount(m.state, Cline)),
+		fmt.Sprintf("%s PI %d active    %s CLINE %d active", marker(m.state, Pi), activeCount(m.state, Pi), marker(m.state, Cline), activeCount(m.state, Cline)),
 		helpStyle.Render("Tab switch · Enter submit · Ctrl+X cancel · Q quit"),
 		helpStyle.Render(strings.Repeat("─", 100)),
 		taskStyle.Render("TASKS · " + string(m.state.ActiveHarness)),
@@ -222,7 +222,7 @@ func (m model) View() tea.View {
 
 func marker(state demoState, harness Harness) string {
 	if state.ActiveHarness == harness {
-		return ">"
+		return "›"
 	}
 	return " "
 }
