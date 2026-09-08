@@ -29,12 +29,15 @@ function statusColor(status: Job['status']): string {
 }
 
 type NoticeSink = { current?: (message: string) => void };
-type CloseState = { promise?: Promise<void> };
+type CloseState = { promise?: Promise<void>; timedOut?: boolean };
 
 function closeJobs(jobs: Jobs, state: CloseState): Promise<void> {
   if (state.promise) return state.promise;
   state.promise = new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('退出清理超时')), 8000);
+    const timer = setTimeout(() => {
+      state.timedOut = true;
+      reject(new Error('退出清理超时'));
+    }, 8000);
     jobs.close().then(() => {
       clearTimeout(timer);
       resolve();
@@ -54,7 +57,6 @@ function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secret
   const width = Math.max(56, Math.min(108, columns - 2));
   const height = Math.max(16, Math.min(30, rows - 1));
   const contentWidth = Math.max(40, width - 4);
-  const outputRows = Math.max(3, height - 15);
   const separator = '─'.repeat(contentWidth);
   const [harness, setHarness] = React.useState<Harness>('pi');
   const [input, setInput] = React.useState('');
@@ -79,7 +81,14 @@ function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secret
     if (closingRef.current) return;
     closingRef.current = true;
     setClosing(true);
-    void closeJobs(jobs, closeState).then(() => exit(), error => exit(new Error(safeError(error, secrets))));
+    void closeJobs(jobs, closeState).then(() => exit(), error => {
+      const failure = new Error(safeError(error, secrets));
+      exit(failure);
+      if (closeState.timedOut) {
+        process.exitCode = 1;
+        setTimeout(() => process.exit(1), 0);
+      }
+    });
   }, [exit, jobs, secrets]);
 
   useInput((value, key) => {
@@ -138,12 +147,12 @@ function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secret
   const selectedIndex = current.findIndex(job => job.id === selected);
   const taskStart = Math.max(0, Math.min(Math.max(0, current.length - 4), selectedIndex - 1));
   const visibleTasks = current.slice(taskStart, taskStart + 4);
+  const outputRows = Math.max(3, height - visibleTasks.length - 12);
   const taskRows = visibleTasks.length
-    ? visibleTasks.map(job => React.createElement(
-        Text,
-        { key: job.id, color: statusColor(job.status) },
-        `${job.id === selected ? '›' : ' '} #${job.id} [${statusLabel(job.status)}] ${clip(clean(job.prompt), contentWidth)}`,
-      ))
+    ? visibleTasks.map(job => {
+        const prefix = `${job.id === selected ? '›' : ' '} #${job.id} [${statusLabel(job.status)}] `;
+        return React.createElement(Text, { key: job.id, color: statusColor(job.status) }, `${prefix}${clip(clean(job.prompt), Math.max(1, contentWidth - prefix.length))}`);
+      })
     : [React.createElement(Text, { key: 'empty', color: 'gray' }, '  no real jobs in this pane')];
   const rawOutput = selectedJob && selectedJob.harness === harness
     ? [`#${selectedJob.id} ${selectedJob.harness.toUpperCase()} · ${statusLabel(selectedJob.status)}`, clean(selectedJob.activity), clean(selectedJob.text || 'waiting for stream…'), selectedJob.error ? `error: ${clean(selectedJob.error)}` : '']
@@ -162,7 +171,7 @@ function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secret
       paddingRight: 1,
     },
     React.createElement(Text, { color: 'cyan' }, 'HARNESS SWITCHER  |  Ink · LIVE'),
-    React.createElement(Text, { color: 'white' }, `› PI ${jobs.items.filter(job => job.harness === 'pi' && isActive(job)).length} active    ${harness === 'pi' ? '>' : ' '} CLINE ${jobs.items.filter(job => job.harness === 'cline' && isActive(job)).length} active`),
+    React.createElement(Text, { color: 'white' }, `${harness === 'pi' ? '›' : ' '} PI ${jobs.items.filter(job => job.harness === 'pi' && isActive(job)).length} active    ${harness === 'cline' ? '›' : ' '} CLINE ${jobs.items.filter(job => job.harness === 'cline' && isActive(job)).length} active`),
     React.createElement(Text, { color: 'gray' }, 'Tab switch · Enter submit real task · Ctrl+X cancel · Ctrl+Q quit'),
     React.createElement(Text, { color: 'gray' }, separator),
     React.createElement(Text, { color: 'green' }, `REAL JOBS · ${harness.toUpperCase()}`),
