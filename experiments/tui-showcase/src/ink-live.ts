@@ -28,6 +28,12 @@ function statusColor(status: Job['status']): string {
   return 'cyan';
 }
 
+function tailLines(text: string, columns: number, rows: number): string[] {
+  const cleaned = clean(text);
+  const tail = cleaned.slice(-Math.max(4096, columns * Math.max(rows, 1) * 4));
+  return wrap(tail, columns).slice(-rows);
+}
+
 type NoticeSink = { current?: (message: string) => void };
 type CloseState = { promise?: Promise<void>; timedOut?: boolean };
 
@@ -154,10 +160,13 @@ function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secret
         return React.createElement(Text, { key: job.id, color: statusColor(job.status) }, `${prefix}${clip(clean(job.prompt), Math.max(1, contentWidth - prefix.length))}`);
       })
     : [React.createElement(Text, { key: 'empty', color: 'gray' }, '  no real jobs in this pane')];
-  const rawOutput = selectedJob && selectedJob.harness === harness
-    ? [`#${selectedJob.id} ${selectedJob.harness.toUpperCase()} · ${statusLabel(selectedJob.status)}`, clean(selectedJob.activity), clean(selectedJob.text || 'waiting for stream…'), selectedJob.error ? `error: ${clean(selectedJob.error)}` : '']
-    : ['Select a real job to watch its stream.'];
-  const output = wrap(clean(rawOutput.filter(Boolean).join('\n')), contentWidth).slice(-outputRows).join('\n');
+  const outputHeader = selectedJob && selectedJob.harness === harness
+    ? [`#${selectedJob.id} ${selectedJob.harness.toUpperCase()} · ${statusLabel(selectedJob.status)}`, clean(selectedJob.activity)]
+    : [];
+  const outputBody = selectedJob && selectedJob.harness === harness
+    ? [selectedJob.text || 'waiting for stream…', selectedJob.error ? `error: ${selectedJob.error}` : ''].filter(Boolean).join('\n')
+    : 'Select a real job to watch its stream.';
+  const output = [...outputHeader, ...tailLines(outputBody, contentWidth, Math.max(1, outputRows - outputHeader.length))].join('\n');
 
   return React.createElement(
     Box,
@@ -181,7 +190,7 @@ function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secret
     React.createElement(Text, { color: 'white' }, output),
     React.createElement(Text, { color: 'gray' }, separator),
     React.createElement(Text, { color: 'yellow' }, clip(notice, contentWidth)),
-    React.createElement(Text, { color: 'white' }, `${harness.toUpperCase()} > ${input ? clip(input, contentWidth - harness.length - 3) : '输入真实任务，按 Enter'}${input ? ' ▏' : ''}`),
+    React.createElement(Text, { color: 'white' }, `${harness.toUpperCase()} > ${input ? clip(input, Math.max(1, contentWidth - harness.length - 5)) : '输入真实任务，按 Enter'}${input ? ' ▏' : ''}`),
   );
 }
 
@@ -202,7 +211,15 @@ async function run(config: Config): Promise<void> {
     await instance.waitUntilExit();
   } finally {
     process.stderr.write = originalStderrWrite;
-    await closeJobs(jobs, closeState);
+    try {
+      await closeJobs(jobs, closeState);
+    } catch (error) {
+      if (closeState.timedOut) {
+        process.exitCode = 1;
+        process.exit(1);
+      }
+      throw error;
+    }
   }
 }
 
