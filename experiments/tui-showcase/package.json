@@ -1,0 +1,21 @@
+{
+  "name": "harness-switcher-tui-showcase",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24",
+    "bun": ">=1.3.0"
+  },
+  "scripts": {
+    "ink": "node src/ink.ts",
+    "opentui": "bun src/opentui.ts"
+  },
+  "dependencies": {
+    "@opentui/core": "0.5.11",
+    "ink": "7.1.1",
+    "react": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1"
+  }
+}

@@ -1,4 +1,7 @@
 node_modules/
+experiments/**/target/
+experiments/**/go/bubble-tea-demo
+experiments/**/__pycache__/
 .env
 .env.*
 !.env.example
