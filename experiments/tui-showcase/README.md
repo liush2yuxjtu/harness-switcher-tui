@@ -15,7 +15,7 @@ Each prototype renders the same state shape and follows the same keyboard scene.
 
 The OpenTUI prototype needs Bun 1.3 or later. The other prototypes use Node, Rust, or Go.
 
-Run `npm run ink:live` for the real Ink TUI. It requires the repository dependencies, valid CPA configuration, and a working CPA session. It creates real HarnessAgent jobs in the existing memory sandbox.
+Run `npm run ink` for the real Ink TUI. `npm run ink:live` is an explicit alias. Run `npm run ink:prototype` for the deterministic video prototype. The real TUI requires repository dependencies, valid CPA configuration, and a working CPA session. It creates real HarnessAgent jobs in the existing memory sandbox.
 
 The video prototypes are not production code. Keep the existing renderer unchanged until the videos settle the choice.
 

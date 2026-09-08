@@ -7,8 +7,9 @@
     "bun": ">=1.3.0"
   },
   "scripts": {
-    "ink": "node src/ink.ts",
+    "ink": "node src/ink-live.ts",
     "ink:live": "node src/ink-live.ts",
+    "ink:prototype": "node src/ink.ts",
     "opentui": "bun src/opentui.ts"
   },
   "dependencies": {
