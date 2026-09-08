@@ -54,6 +54,8 @@ def record(name, output_dir):
         cursor += item['after']
         schedule.append((cursor, KEYS[item['key']]))
     sent = 0
+    finished_by_scene = False
+    forced = False
     deadline = started + 12
     try:
         while time.monotonic() < deadline:
@@ -74,8 +76,10 @@ def record(name, output_dir):
                 if chunk:
                     events.append([round(elapsed, 3), 'o', chunk.decode('utf-8', errors='replace')])
             if process.poll() is not None and sent == len(schedule):
+                finished_by_scene = True
                 break
         if process.poll() is None:
+            forced = True
             os.write(master, b'\x03')
             process.wait(timeout=2)
     finally:
@@ -96,6 +100,10 @@ def record(name, output_dir):
         for event in events:
             handle.write(json.dumps(event, ensure_ascii=False) + '\n')
     print(f'{name}: {path} events={len(events)} exit={process.returncode}')
+    if sent != len(schedule) or not finished_by_scene:
+        raise RuntimeError(f'{name} ended before the full scene completed')
+    if forced:
+        raise RuntimeError(f'{name} required forced termination')
     if process.returncode != 0:
         raise RuntimeError(f'{name} exited with {process.returncode}')
 

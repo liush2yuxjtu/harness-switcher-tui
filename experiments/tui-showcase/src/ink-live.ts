@@ -95,7 +95,16 @@ function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secret
         setTimeout(() => process.exit(1), 0);
       }
     });
-  }, [exit, jobs, secrets]);
+  }, [closeState, exit, jobs, secrets]);
+
+  React.useEffect(() => {
+    process.on('SIGINT', stop);
+    process.on('SIGTERM', stop);
+    return () => {
+      process.off('SIGINT', stop);
+      process.off('SIGTERM', stop);
+    };
+  }, [stop]);
 
   useInput((value, key) => {
     const pastedText = value.replace(/[\r\n\t]/g, ' ');
