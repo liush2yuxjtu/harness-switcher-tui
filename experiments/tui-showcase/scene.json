@@ -1,0 +1,15 @@
+{
+  "terminal": {
+    "columns": 112,
+    "rows": 32
+  },
+  "prompt": "Inspect harness event flow",
+  "events": [
+    { "after": 0.6, "key": "ENTER" },
+    { "after": 1.0, "key": "TAB" },
+    { "after": 0.3, "key": "ENTER" },
+    { "after": 0.75, "key": "CTRL-X" },
+    { "after": 0.7, "key": "TAB" },
+    { "after": 1.1, "key": "Q" }
+  ]
+}
