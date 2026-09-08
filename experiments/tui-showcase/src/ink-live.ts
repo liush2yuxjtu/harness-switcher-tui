@@ -29,9 +29,9 @@ function statusColor(status: Job['status']): string {
 }
 
 function tailLines(text: string, columns: number, rows: number): string[] {
-  const cleaned = clean(text);
-  const tail = cleaned.slice(-Math.max(4096, columns * Math.max(rows, 1) * 4));
-  return wrap(tail, columns).slice(-rows);
+  const budget = Math.max(4096, columns * Math.max(rows, 1) * 4);
+  const start = Math.max(0, text.length - budget - 128);
+  return wrap(clean(text.slice(start)), columns).slice(-rows);
 }
 
 type NoticeSink = { current?: (message: string) => void };
@@ -147,6 +147,10 @@ function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secret
       setInput(current => current + pastedText);
     }
   });
+
+  if (columns < 56 || rows < 20) {
+    return React.createElement(Text, { color: 'yellow' }, '终端过小，请放大至至少 56×20。按 Ctrl+Q 退出。');
+  }
 
   const current = jobs.items.filter(job => job.harness === harness);
   const selectedJob = jobs.items.find(job => job.id === selected);
