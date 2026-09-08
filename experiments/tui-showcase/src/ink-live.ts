@@ -157,8 +157,8 @@ function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secret
     }
   });
 
-  if (columns < 56 || rows < 20) {
-    return React.createElement(Text, { color: 'yellow' }, '终端过小，请放大至至少 56×20。按 Ctrl+Q 退出。');
+  if (columns < 80 || rows < 24) {
+    return React.createElement(Text, { color: 'yellow' }, '终端过小，请放大至至少 80×24。按 Ctrl+Q 退出。');
   }
 
   const current = jobs.items.filter(job => job.harness === harness);
@@ -247,7 +247,7 @@ try {
   await checkModels(config);
   await run(config);
 } catch (error) {
-  console.error(safeError(error));
+  console.error(clean(safeError(error)));
   process.exitCode = 1;
 } finally {
   restoreFetch();
