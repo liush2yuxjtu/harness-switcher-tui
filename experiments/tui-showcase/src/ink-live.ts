@@ -58,8 +58,14 @@ function closeJobs(jobs: Jobs, state: CloseState): Promise<void> {
 function LiveApp({ jobs, secrets, noticeSink, closeState }: { jobs: Jobs; secrets: string[]; noticeSink: NoticeSink; closeState: CloseState }) {
   const { exit } = useApp();
   const { stdout } = useStdout();
-  const columns = stdout.columns || 80;
-  const rows = stdout.rows || 24;
+  const [viewport, setViewport] = React.useState({ columns: stdout.columns || 80, rows: stdout.rows || 24 });
+  React.useEffect(() => {
+    const resize = () => setViewport({ columns: stdout.columns || 80, rows: stdout.rows || 24 });
+    stdout.on('resize', resize);
+    return () => { stdout.off('resize', resize); };
+  }, [stdout]);
+  const columns = viewport.columns;
+  const rows = viewport.rows;
   const width = Math.max(56, Math.min(108, columns - 2));
   const height = Math.max(16, Math.min(30, rows - 1));
   const contentWidth = Math.max(40, width - 4);
