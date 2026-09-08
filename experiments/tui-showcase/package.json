@@ -8,6 +8,7 @@
   },
   "scripts": {
     "ink": "node src/ink.ts",
+    "ink:live": "node src/ink-live.ts",
     "opentui": "bun src/opentui.ts"
   },
   "dependencies": {

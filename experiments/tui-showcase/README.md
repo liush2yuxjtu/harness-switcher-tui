@@ -4,7 +4,8 @@ This directory holds throwaway prototypes for the `harness-switcher-tui` framewo
 
 Each prototype renders the same state shape and follows the same keyboard scene.
 
-- `src/ink.ts` uses Ink and React.
+- `src/ink.ts` uses Ink and React for the deterministic video prototype.
+- `src/ink-live.ts` uses Ink with the repository's real `Jobs` and CPA path.
 - `src/opentui.ts` uses OpenTUI core renderables and Bun.
 - `rust/src/main.rs` uses Ratatui and Crossterm.
 - `go/main.go` uses Bubble Tea and Lip Gloss.
@@ -14,7 +15,9 @@ Each prototype renders the same state shape and follows the same keyboard scene.
 
 The OpenTUI prototype needs Bun 1.3 or later. The other prototypes use Node, Rust, or Go.
 
-The prototypes are not production code. Keep the existing renderer unchanged until the videos settle the choice.
+Run `npm run ink:live` for the real Ink TUI. It requires the repository dependencies, valid CPA configuration, and a working CPA session. It creates real HarnessAgent jobs in the existing memory sandbox.
+
+The video prototypes are not production code. Keep the existing renderer unchanged until the videos settle the choice.
 
 ## Render the videos
 
