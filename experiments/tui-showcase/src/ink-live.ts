@@ -1,7 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { Box, Text, render, useApp, useInput } from 'ink';
 import { checkModels, loadConfig, safeError, type Config } from '../../../src/config.ts';
 import { isActive, Jobs, type Job } from '../../../src/jobs.ts';
+import { clean, wrap } from '../../../src/screen.ts';
 import { restrictFetch } from '../../../src/network.ts';
 import { harnesses, liveFactory, type Harness } from '../../../src/runtime.ts';
 
@@ -27,7 +29,9 @@ function statusColor(status: Job['status']): string {
   return 'cyan';
 }
 
-function LiveApp({ jobs, secrets }: { jobs: Jobs; secrets: string[] }) {
+type NoticeSink = { current?: (message: string) => void };
+
+function LiveApp({ jobs, secrets, noticeSink }: { jobs: Jobs; secrets: string[]; noticeSink: NoticeSink }) {
   const { exit } = useApp();
   const [harness, setHarness] = React.useState<Harness>('pi');
   const [input, setInput] = React.useState('');
@@ -42,6 +46,11 @@ function LiveApp({ jobs, secrets }: { jobs: Jobs; secrets: string[] }) {
     jobs.on('change', change);
     return () => { jobs.off('change', change); };
   }, [jobs]);
+
+  React.useEffect(() => {
+    noticeSink.current = setNotice;
+    return () => { noticeSink.current = undefined; };
+  }, [noticeSink]);
 
   const stop = React.useCallback(() => {
     if (closingRef.current) return;
@@ -103,16 +112,20 @@ function LiveApp({ jobs, secrets }: { jobs: Jobs; secrets: string[] }) {
 
   const current = jobs.items.filter(job => job.harness === harness);
   const selectedJob = jobs.items.find(job => job.id === selected);
-  const taskRows = current.length
-    ? current.map(job => React.createElement(
+  const selectedIndex = current.findIndex(job => job.id === selected);
+  const taskStart = Math.max(0, Math.min(Math.max(0, current.length - 4), selectedIndex - 1));
+  const visibleTasks = current.slice(taskStart, taskStart + 4);
+  const taskRows = visibleTasks.length
+    ? visibleTasks.map(job => React.createElement(
         Text,
         { key: job.id, color: statusColor(job.status) },
-        `${job.id === selected ? '›' : ' '} #${job.id} [${statusLabel(job.status)}] ${job.prompt}`,
+        `${job.id === selected ? '›' : ' '} #${job.id} [${statusLabel(job.status)}] ${clean(job.prompt)}`,
       ))
     : [React.createElement(Text, { key: 'empty', color: 'gray' }, '  no real jobs in this pane')];
-  const output = selectedJob && selectedJob.harness === harness
-    ? [`#${selectedJob.id} ${selectedJob.harness.toUpperCase()} · ${statusLabel(selectedJob.status)}`, selectedJob.activity, selectedJob.text || 'waiting for stream…', selectedJob.error ? `error: ${selectedJob.error}` : '']
+  const rawOutput = selectedJob && selectedJob.harness === harness
+    ? [`#${selectedJob.id} ${selectedJob.harness.toUpperCase()} · ${statusLabel(selectedJob.status)}`, clean(selectedJob.activity), clean(selectedJob.text || 'waiting for stream…'), selectedJob.error ? `error: ${clean(selectedJob.error)}` : '']
     : ['Select a real job to watch its stream.'];
+  const output = wrap(clean(rawOutput.filter(Boolean).join('\n')), 100).slice(-8).join('\n');
 
   return React.createElement(
     Box,
@@ -133,7 +146,7 @@ function LiveApp({ jobs, secrets }: { jobs: Jobs; secrets: string[] }) {
     ...taskRows,
     React.createElement(Text, { color: 'gray' }, separator),
     React.createElement(Text, { color: 'magenta' }, 'OUTPUT'),
-    React.createElement(Text, { color: 'white' }, output.filter(Boolean).join('\n')),
+    React.createElement(Text, { color: 'white' }, output),
     React.createElement(Text, { color: 'gray' }, separator),
     React.createElement(Text, { color: 'yellow' }, notice),
     React.createElement(Text, { color: 'white' }, `${harness.toUpperCase()} > ${input || '输入真实任务，按 Enter'}${input ? ' ▏' : ''}`),
@@ -142,14 +155,25 @@ function LiveApp({ jobs, secrets }: { jobs: Jobs; secrets: string[] }) {
 
 async function run(config: Config): Promise<void> {
   const jobs = new Jobs(liveFactory(config), [config.apiKey]);
-  const instance = render(React.createElement(LiveApp, { jobs, secrets: [config.apiKey] }));
+  const noticeSink: NoticeSink = {};
+  const originalStderrWrite = process.stderr.write;
+  process.stderr.write = function(chunk: string | Uint8Array, ...rest: unknown[]): boolean {
+    const text = Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk);
+    noticeSink.current?.(`SDK: ${clean(safeError(text, [config.apiKey])).split('\n')[0]}`);
+    const callback = rest.find(value => typeof value === 'function') as (() => void) | undefined;
+    callback?.();
+    return true;
+  } as typeof process.stderr.write;
+  const instance = render(React.createElement(LiveApp, { jobs, secrets: [config.apiKey], noticeSink }));
   try {
     await instance.waitUntilExit();
   } finally {
+    process.stderr.write = originalStderrWrite;
     await jobs.close();
   }
 }
 
+process.chdir(fileURLToPath(new URL('../../../', import.meta.url)));
 let restoreFetch = () => {};
 try {
   const config = await loadConfig();
