@@ -188,8 +188,8 @@ async function run(config: Config): Promise<void> {
     callback?.();
     return true;
   } as typeof process.stderr.write;
-  const instance = render(React.createElement(LiveApp, { jobs, secrets: [config.apiKey], noticeSink, closeState }));
   try {
+    const instance = render(React.createElement(LiveApp, { jobs, secrets: [config.apiKey], noticeSink, closeState }));
     await instance.waitUntilExit();
   } finally {
     process.stderr.write = originalStderrWrite;
